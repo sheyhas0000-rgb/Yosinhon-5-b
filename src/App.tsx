@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Smartphone, 
@@ -19,9 +19,11 @@ import {
   Cpu,
   Droplets,
   Camera,
-  MessageSquare
+  MessageSquare,
+  User,
+  LogOut
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,6 +40,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { Toaster, toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const SERVICES = [
   {
@@ -121,6 +124,57 @@ export default function App() {
   const [orderId, setOrderId] = useState('');
   const [orderResult, setOrderResult] = useState<typeof MOCK_ORDERS[string] | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [user, setUser] = useState<{ name: string; email: string; picture: string } | null>(null);
+
+  const fetchUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      const data = await response.json();
+      setUser(data.user);
+    } catch (error) {
+      console.error("Failed to fetch user", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUser();
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        fetchUser();
+        toast.success('Google orqali kirdingiz!');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    try {
+      const response = await fetch('/api/auth/google/url');
+      const { url } = await response.json();
+      
+      const width = 500;
+      const height = 600;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      window.open(
+        url,
+        'google_login',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+    } catch (error) {
+      toast.error('Google login xatoligi');
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setUser(null);
+    toast.success('Tizimdan chiqdingiz');
+  };
 
   const handleTrack = (e: FormEvent) => {
     e.preventDefault();
@@ -134,16 +188,94 @@ export default function App() {
     }
   };
 
-  const handleBook = (e: FormEvent) => {
+  const handleBook = async (e: FormEvent) => {
     e.preventDefault();
-    toast.success('Sizning so\'rovingiz qabul qilindi! Tez orada bog\'lanamiz.');
-    setIsBookingOpen(false);
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const data = {
+      name: formData.get('name') || formData.get('modal-name'),
+      phone: formData.get('phone') || formData.get('modal-phone'),
+      device: formData.get('device') || formData.get('modal-device'),
+      issue: formData.get('issue') || '',
+      userEmail: user?.email || 'Mehmon',
+    };
+
+    try {
+      const response = await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        toast.success('Sizning so\'rovingiz qabul qilindi! Tez orada bog\'lanamiz.');
+        setIsBookingOpen(false);
+      } else {
+        toast.error('Xatolik yuz berdi. Iltimos, qaytadan urinib ko\'ring.');
+      }
+    } catch (error) {
+      toast.error('Server bilan bog\'lanishda xatolik.');
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       <Toaster position="top-center" />
       
+      {/* Floating Check Order Button */}
+      <div className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex flex-col items-end gap-2 pointer-events-none">
+        <motion.div
+          initial={{ x: 100 }}
+          animate={{ x: 0 }}
+          className="pointer-events-auto"
+        >
+          <Button 
+            onClick={user ? () => {} : handleGoogleLogin}
+            className="rounded-l-full h-14 pl-6 pr-4 shadow-2xl bg-zinc-900 hover:bg-zinc-800 border-y border-l border-white/10 group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <div className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Buyurtma</div>
+                <div className="text-sm font-bold">{user ? 'Mening profilim' : 'Tekshirish'}</div>
+              </div>
+              {user ? (
+                <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                  <User className="w-4 h-4" />
+                </div>
+              )}
+            </div>
+          </Button>
+        </motion.div>
+
+        {user && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="pointer-events-auto mr-2"
+          >
+            <Card className="w-64 glass p-4 border-zinc-200 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <img src={user.picture} alt={user.name} className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
+                <div className="overflow-hidden">
+                  <div className="font-bold text-sm truncate">{user.name}</div>
+                  <div className="text-xs text-zinc-500 truncate">{user.email}</div>
+                </div>
+              </div>
+              <Separator className="mb-4" />
+              <div className="space-y-2">
+                <Button variant="outline" size="sm" className="w-full justify-start gap-2" asChild>
+                  <a href="#track">Buyurtmalarim</a>
+                </Button>
+                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4" /> Chiqish
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </div>
+
       {/* Header */}
       <header className="sticky top-0 z-50 glass border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -189,9 +321,12 @@ export default function App() {
                   <Button size="lg" className="rounded-full px-8 h-14 text-lg" onClick={() => setIsBookingOpen(true)}>
                     Hozir buyurtma berish
                   </Button>
-                  <Button variant="outline" size="lg" className="rounded-full px-8 h-14 text-lg" asChild>
-                    <a href="#track">Buyurtmani kuzatish</a>
-                  </Button>
+                  <a 
+                    href="#track" 
+                    className={cn(buttonVariants({ variant: "outline", size: "lg" }), "rounded-full px-8 h-14 text-lg")}
+                  >
+                    Buyurtmani kuzatish
+                  </a>
                 </div>
               </motion.div>
             </div>
@@ -470,20 +605,21 @@ export default function App() {
                     <form onSubmit={handleBook} className="space-y-4">
                       <div className="grid gap-2">
                         <Label htmlFor="name">Ismingiz</Label>
-                        <Input id="name" placeholder="Ismingizni kiriting" required />
+                        <Input id="name" name="name" placeholder="Ismingizni kiriting" required />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="phone">Telefon raqamingiz</Label>
-                        <Input id="phone" placeholder="+998 __ ___ __ __" required />
+                        <Input id="phone" name="phone" placeholder="+998 __ ___ __ __" required />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="device">Qurilma modeli</Label>
-                        <Input id="device" placeholder="Masalan: iPhone 14 Pro" required />
+                        <Input id="device" name="device" placeholder="Masalan: iPhone 14 Pro" required />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="issue">Muammo tavsifi</Label>
                         <textarea 
                           id="issue" 
+                          name="issue" 
                           className="flex min-h-[100px] w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           placeholder="Muammoni qisqacha tushuntiring..."
                           required
@@ -535,15 +671,15 @@ export default function App() {
           <form onSubmit={handleBook} className="space-y-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="modal-name">Ismingiz</Label>
-              <Input id="modal-name" placeholder="Ismingizni kiriting" required />
+              <Input id="modal-name" name="modal-name" placeholder="Ismingizni kiriting" required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="modal-phone">Telefon raqamingiz</Label>
-              <Input id="modal-phone" placeholder="+998 __ ___ __ __" required />
+              <Input id="modal-phone" name="modal-phone" placeholder="+998 __ ___ __ __" required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="modal-device">Qurilma modeli</Label>
-              <Input id="modal-device" placeholder="Masalan: iPhone 14 Pro" required />
+              <Input id="modal-device" name="modal-device" placeholder="Masalan: Redmi 14 pro" required />
             </div>
             <DialogFooter className="pt-4">
               <Button type="submit" className="w-full">Yuborish</Button>
