@@ -176,6 +176,20 @@ export default function App() {
     toast.success('Tizimdan chiqdingiz');
   };
 
+  const [clickCount, setClickCount] = useState(0);
+  const handleLogoClick = () => {
+    if (user) return;
+    const newCount = clickCount + 1;
+    if (newCount >= 3) {
+      handleGoogleLogin();
+      setClickCount(0);
+    } else {
+      setClickCount(newCount);
+      // Reset count after 2 seconds of inactivity
+      setTimeout(() => setClickCount(0), 2000);
+    }
+  };
+
   const handleTrack = (e: FormEvent) => {
     e.preventDefault();
     const result = MOCK_ORDERS[orderId.toUpperCase()];
@@ -217,64 +231,64 @@ export default function App() {
     }
   };
 
+  const isAdmin = user?.email === 'sheyhas0000@gmail.com';
+
   return (
     <div className="min-h-screen flex flex-col">
       <Toaster position="top-center" />
       
-      {/* Floating Check Order Button */}
-      <div className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex flex-col items-end gap-2 pointer-events-none">
-        <motion.div
-          initial={{ x: 100 }}
-          animate={{ x: 0 }}
-          className="pointer-events-auto"
-        >
-          <Button 
-            onClick={user ? () => {} : handleGoogleLogin}
-            className="rounded-l-full h-14 pl-6 pr-4 shadow-2xl bg-zinc-900 hover:bg-zinc-800 border-y border-l border-white/10 group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <div className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Buyurtma</div>
-                <div className="text-sm font-bold">{user ? 'Mening profilim' : 'Tekshirish'}</div>
-              </div>
-              {user ? (
-                <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                  <User className="w-4 h-4" />
+      {/* Floating Admin Panel - Only visible to Admin */}
+      <AnimatePresence>
+        {isAdmin && (
+          <div className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex flex-col items-end gap-2 pointer-events-none">
+            <motion.div
+              initial={{ x: 100 }}
+              animate={{ x: 0 }}
+              exit={{ x: 100 }}
+              className="pointer-events-auto"
+            >
+              <Button 
+                className="rounded-l-full h-14 pl-6 pr-4 shadow-2xl bg-zinc-900 hover:bg-zinc-800 border-y border-l border-white/10 group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="text-right hidden sm:block">
+                    <div className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Admin</div>
+                    <div className="text-sm font-bold">Boshqaruv</div>
+                  </div>
+                  <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
                 </div>
-              )}
-            </div>
-          </Button>
-        </motion.div>
+              </Button>
+            </motion.div>
 
-        {user && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="pointer-events-auto mr-2"
-          >
-            <Card className="w-64 glass p-4 border-zinc-200 shadow-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <img src={user.picture} alt={user.name} className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
-                <div className="overflow-hidden">
-                  <div className="font-bold text-sm truncate">{user.name}</div>
-                  <div className="text-xs text-zinc-500 truncate">{user.email}</div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="pointer-events-auto mr-2"
+            >
+              <Card className="w-64 glass p-4 border-zinc-200 shadow-2xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <img src={user.picture} alt={user.name} className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
+                  <div className="overflow-hidden">
+                    <div className="font-bold text-sm truncate">{user.name}</div>
+                    <div className="text-xs text-zinc-500 truncate">{user.email}</div>
+                  </div>
                 </div>
-              </div>
-              <Separator className="mb-4" />
-              <div className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2" asChild>
-                  <a href="#track">Buyurtmalarim</a>
-                </Button>
-                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleLogout}>
-                  <LogOut className="w-4 h-4" /> Chiqish
-                </Button>
-              </div>
-            </Card>
-          </motion.div>
+                <Separator className="mb-4" />
+                <div className="space-y-2">
+                  <div className="text-[10px] uppercase font-bold text-zinc-400 mb-1 px-2">Admin Funksiyalari</div>
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2" asChild>
+                    <a href="#track">Barcha buyurtmalar</a>
+                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleLogout}>
+                    <LogOut className="w-4 h-4" /> Chiqish
+                  </Button>
+                </div>
+              </Card>
+            </motion.div>
+          </div>
         )}
-      </div>
+      </AnimatePresence>
 
       {/* Header */}
       <header className="sticky top-0 z-50 glass border-b">
@@ -639,14 +653,14 @@ export default function App() {
       <footer className="bg-white border-t py-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 cursor-pointer select-none" onClick={handleLogoClick}>
               <div className="bg-zinc-900 text-white p-1.5 rounded-lg">
                 <Wrench className="w-5 h-5" />
               </div>
               <span className="font-bold text-xl tracking-tight">iFix Service</span>
             </div>
             
-            <div className="text-sm text-zinc-500">
+            <div className="text-sm text-zinc-500 flex items-center gap-2">
               © 2024 iFix Service. Barcha huquqlar himoyalangan.
             </div>
             
