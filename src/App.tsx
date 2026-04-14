@@ -205,9 +205,19 @@ export default function App() {
   const handleBook = async (e: FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const phone = (formData.get('phone') || formData.get('modal-phone')) as string;
+    
+    // O'zbekiston telefon raqami formati (+998 XX YYY ZZ ZZ)
+    const phoneRegex = /^\+998\s?\d{2}\s?\d{3}\s?\d{2}\s?\d{2}$/;
+    
+    if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+      toast.error('Telefon raqami noto\'g\'ri! Format: +998938570971');
+      return;
+    }
+
     const data = {
       name: formData.get('name') || formData.get('modal-name'),
-      phone: formData.get('phone') || formData.get('modal-phone'),
+      phone: phone,
       device: formData.get('device') || formData.get('modal-device'),
       issue: formData.get('issue') || '',
       userEmail: user?.email || 'Mehmon',
@@ -623,7 +633,7 @@ export default function App() {
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="phone">Telefon raqamingiz</Label>
-                        <Input id="phone" name="phone" placeholder="+998 __ ___ __ __" required />
+                        <Input id="phone" name="phone" placeholder="+998938570971" required />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="device">Qurilma modeli</Label>
@@ -689,7 +699,7 @@ export default function App() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="modal-phone">Telefon raqamingiz</Label>
-              <Input id="modal-phone" name="modal-phone" placeholder="+998 __ ___ __ __" required />
+              <Input id="modal-phone" name="modal-phone" placeholder="+998938570971" required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="modal-device">Qurilma modeli</Label>
